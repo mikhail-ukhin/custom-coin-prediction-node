@@ -10,7 +10,7 @@ from config import data_base_path, model_file_path
 
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
-training_price_data_path = os.path.join(data_base_path, "eth_price_data.csv")
+training_price_data_path = os.path.join(data_base_path, "sol_price_data.csv")
 
 
 def download_data():
