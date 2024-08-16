@@ -16,11 +16,11 @@ import ta
 import requests
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
-training_price_data_path = os.path.join(data_base_path, "sol_price_data.csv")
+training_price_data_path = os.path.join(data_base_path, "eth_price_data.csv")
 
 def download_data():
     cm_or_um = "um"
-    symbols = ["SOLUSDT"]
+    symbols = ["ETHUSDT"]
 
     intervals = ["10m", "20m", "1h", "1d"]
     years = ["2020", "2021", "2022", "2023", "2024"]

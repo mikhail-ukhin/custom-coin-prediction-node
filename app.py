@@ -3,7 +3,7 @@ import pickle
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from flask import Flask, jsonify, Response
+from flask import Flask, Response
 from model import download_data, format_data, get_price_prediction, train_model_xgb
 from config import model_file_path
 
@@ -15,7 +15,6 @@ def update_data():
     download_data()
     format_data()
     train_model_xgb()
-
 
 def get_coin_inference():
     """Load model and predict current price."""
@@ -31,11 +30,10 @@ def get_coin_inference():
 def get_coin_inference_alternative():
     return get_price_prediction()
 
-
 @app.route("/inference/<string:token>")
 def generate_inference(token):
     """Generate inference for given token."""
-    if not token or token != "SOL":
+    if not token or token != "ETH":
         error_msg = "Token is required" if not token else "Token not supported"
         return Response(json.dumps({"error": error_msg}), status=400, mimetype='application/json')
 
@@ -44,7 +42,6 @@ def generate_inference(token):
         return Response(str(inference), status=200)
     except Exception as e:
         return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
-
 
 @app.route("/update")
 def update():
