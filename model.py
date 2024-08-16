@@ -1,7 +1,7 @@
 import os
 import pickle
 from zipfile import ZipFile
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from updater import download_binance_monthly_data, download_binance_daily_data
@@ -12,6 +12,8 @@ import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 import numpy as np
+import ta
+import requests
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
 training_price_data_path = os.path.join(data_base_path, "sol_price_data.csv")
@@ -129,12 +131,15 @@ def train_model_xgb():
     price_data["start_time"] = pd.to_datetime(price_data["start_time"])
     price_data["start_time"] = price_data["start_time"].map(pd.Timestamp.timestamp)
 
-    # Use the average of 'open', 'close', 'high', 'low' as the target price
-    price_data["price"] = price_data[["open", "close", "high", "low"]].mean(axis=1)
+    # Calculate technical indicators
+    price_data["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()  # 14-period RSI
 
-    # Prepare the feature matrix X and the target vector y
-    X = price_data[["start_time"]].values
-    y = price_data["price"].values
+    # Drop NaN values that may result from rolling calculations
+    price_data = price_data.dropna()
+
+    # Use the start_time and calculated indicators as features
+    X = price_data[["start_time", "RSI_14"]]
+    y = price_data["close"].values
 
     # Split the data into training and test sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
@@ -150,6 +155,7 @@ def train_model_xgb():
 
     # Evaluate the model
     mse = mean_squared_error(y_test, y_pred)
+
     print(f"Mean Squared Error: {mse}")
 
     # create the model's parent directory if it doesn't exist
@@ -161,17 +167,46 @@ def train_model_xgb():
 
     print(f"Trained model saved to {model_file_path}")
 
+def get_current_indicator_values():
+    # Symbol and exchange (example for Bitcoin on Binance)
+    symbol = 'ETH/USDT'
+    exchange = 'binance'
+    interval = '5m'  # 5-minute timeframe
+    api_key = ''
+
+    # API endpoint for batch request
+    url = f"https://api.taapi.io/rsi?secret={api_key}&exchange={exchange}&symbol={symbol}&interval={interval}"
+
+    # Payload for fetching multiple indicators
+    headers = {"Content-Type": "application/json"}
+
+    # Make the API request
+    response = requests.request("GET", url, headers=headers)
+    data = response.json()
+
+    print(data)
+
+    # Extract the indicator values
+    rsi_value = data['value']
+
+    return rsi_value
+
 def get_price_prediction():
     with open(model_file_path, "rb") as f:
         loaded_model = pickle.load(f)
 
-    future_timestamp = pd.Timestamp(datetime.now()).timestamp()
-    future_price_pred = loaded_model.predict(np.array([[future_timestamp]]))
+    rsi_value = get_current_indicator_values()
+
+    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=30)).timestamp()
+    # Make the prediction
+    future_features = np.array([[future_timestamp, rsi_value]])
     
+    future_price_pred = loaded_model.predict(future_features)
+
     return future_price_pred[0]
 
 if __name__ == "__main__":
-    download_data()
+    # download_data()
     format_data()
     train_model_xgb()
 

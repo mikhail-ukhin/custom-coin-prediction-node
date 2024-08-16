@@ -8,4 +8,5 @@ werkzeug>=3.0.3 # not directly required, pinned by Snyk to avoid a vulnerability
 transformers[torch]
 chronos
 xgboost
+ta
 git+https://github.com/amazon-science/chronos-forecasting.git
