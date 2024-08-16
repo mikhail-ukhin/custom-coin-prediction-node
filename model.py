@@ -168,7 +168,7 @@ def get_price_prediction():
     future_timestamp = pd.Timestamp(datetime.now()).timestamp()
     future_price_pred = loaded_model.predict(np.array([[future_timestamp]]))
     
-    return future_price_pred
+    return future_price_pred[0]
 
 if __name__ == "__main__":
     download_data()
