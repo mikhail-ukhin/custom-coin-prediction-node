@@ -169,25 +169,24 @@ def train_model_xgb():
 
 def get_current_indicator_values():
     # Symbol and exchange (example for Bitcoin on Binance)
-    symbol = 'ETH/USDT'
-    exchange = 'binance'
+    symbol = 'ETHUSDT'
     interval = '5m'  # 5-minute timeframe
-    api_key = ''
+    limit = '100'  # Fetch the last 100 data points
 
     # API endpoint for batch request
-    url = f"https://api.taapi.io/rsi?secret={api_key}&exchange={exchange}&symbol={symbol}&interval={interval}"
-
-    # Payload for fetching multiple indicators
-    headers = {"Content-Type": "application/json"}
+    url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
 
     # Make the API request
-    response = requests.request("GET", url, headers=headers)
+    response = requests.get(url)
     data = response.json()
 
-    print(data)
+    columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore']
 
-    # Extract the indicator values
-    rsi_value = data['value']
+    df = pd.DataFrame(data, columns=columns)
+    df['close'] = df['close'].astype(float)
+    df['RSI_14'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
+
+    rsi_value = df['RSI_14'].iloc[-1]
 
     return rsi_value
 
