@@ -1,6 +1,6 @@
 services:
   inference:
-    container_name: inference-basic-eth-pred
+    container_name: inference-custom-coin-pred
     build: .
     command: python -u /app/app.py
     ports:
@@ -14,7 +14,7 @@ services:
       - ./inference-data:/app/data
   
   updater:
-    container_name: updater-basic-eth-pred
+    container_name: updater-custom-coin-pred
     build: .
     environment:
       - INFERENCE_API_ADDRESS=http://inference:8000

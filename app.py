@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from flask import Flask, jsonify, Response
-from model import download_data, format_data, train_model
+from model import download_data, format_data, get_price_prediction, train_model_xgb
 from config import model_file_path
 
 app = Flask(__name__)
@@ -14,10 +14,10 @@ def update_data():
     """Download price data, format data and train model."""
     download_data()
     format_data()
-    train_model()
+    train_model_xgb()
 
 
-def get_eth_inference():
+def get_coin_inference():
     """Load model and predict current price."""
     with open(model_file_path, "rb") as f:
         loaded_model = pickle.load(f)
@@ -28,6 +28,9 @@ def get_eth_inference():
 
     return current_price_pred[0][0]
 
+def get_coin_inference_alternative():
+    return get_price_prediction()
+
 
 @app.route("/inference/<string:token>")
 def generate_inference(token):
@@ -37,7 +40,7 @@ def generate_inference(token):
         return Response(json.dumps({"error": error_msg}), status=400, mimetype='application/json')
 
     try:
-        inference = get_eth_inference()
+        inference = get_coin_inference_alternative()
         return Response(str(inference), status=200)
     except Exception as e:
         return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')

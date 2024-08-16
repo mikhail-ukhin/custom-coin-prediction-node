@@ -12,3 +12,5 @@ config.json
 env
 env_file
 .env
+
+data/*
