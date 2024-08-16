@@ -9,5 +9,4 @@ transformers[torch]
 chronos
 xgboost
 ta
-ta-binance
 git+https://github.com/amazon-science/chronos-forecasting.git
