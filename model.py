@@ -14,9 +14,12 @@ from sklearn.metrics import mean_squared_error
 import numpy as np
 import ta
 import requests
+import requests_cache
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
 training_price_data_path = os.path.join(data_base_path, "sol_price_data.csv")
+
+requests_cache.install_cache('binance_api', expire_after=300)
 
 def download_data():
     cm_or_um = "um"
