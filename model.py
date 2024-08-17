@@ -1,29 +1,26 @@
 import os
 import pickle
-from zipfile import ZipFile
-from datetime import datetime, timedelta
 import pandas as pd
-from sklearn.linear_model import LinearRegression
-from updater import download_binance_monthly_data, download_binance_daily_data
-from config import data_base_path, model_file_path
-import torch
-from chronos import ChronosPipeline
 import xgboost as xgb
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
 import numpy as np
 import ta
 import requests
 import requests_cache
 
+from zipfile import ZipFile
+from datetime import datetime, timedelta
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+
+from updater import download_binance_monthly_data, download_binance_daily_data
+from config import data_base_path, model_file_path, coin_pair
+
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
 training_price_data_path = os.path.join(data_base_path, "sol_price_data.csv")
 
-requests_cache.install_cache('binance_api', expire_after=300)
-
 def download_data():
     cm_or_um = "um"
-    symbols = ["SOLUSDT"]
+    symbols = [coin_pair]
 
     intervals = ["10m", "20m", "1h", "1d"]
     years = ["2020", "2021", "2022", "2023", "2024"]
@@ -44,7 +41,7 @@ def download_data():
 
 def download_data_frequent():
     cm_or_um = "um"
-    symbols = ["SOLUSDT"]
+    symbols = [coin_pair]
 
     intervals = ["1m"]
     
@@ -129,39 +126,28 @@ def train_model():
 
 def train_model_xgb():
     price_data = pd.read_csv(training_price_data_path)
+    df = pd.DataFrame()
 
-    # Convert 'start_time' to a numerical value (timestamp) we can use for the model
-    price_data["start_time"] = pd.to_datetime(price_data["start_time"])
-    price_data["start_time"] = price_data["start_time"].map(pd.Timestamp.timestamp)
+    # Convert 'date' to a numerical value (timestamp) we can use for regression
+    df["date"] = pd.to_datetime(price_data["date"])
+    df["date"] = df["date"].map(pd.Timestamp.timestamp)
 
-    # Calculate technical indicators
-    price_data["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()  # 14-period RSI
+    # Calculate the average price and RSI
+    df["price"] = price_data[["open", "close", "high", "low"]].mean(axis=1)
+    df["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()
 
-    # Drop NaN values that may result from rolling calculations
-    price_data = price_data.dropna()
+    # Prepare the features and target variable
+    x = df[["date", "RSI_14"]].values  # Include RSI as a feature
+    y = df["price"].values
 
-    # Use the start_time and calculated indicators as features
-    X = price_data[["start_time", "RSI_14"]]
-    y = price_data["close"].values
+    # Split the data into training set and test set
+    x_train, _, y_train, _ = train_test_split(x, y, test_size=0.2, random_state=0)
 
-    # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    # Train the XGBoost model
+    model = xgb.XGBRegressor(objective='reg:squarederror', random_state=0)
+    model.fit(x_train, y_train)
 
-    # Initialize the XGBoost regressor
-    model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=100, learning_rate=0.1)
-
-    # Train the model
-    model.fit(X_train, y_train)
-
-    # Make predictions on the test set
-    y_pred = model.predict(X_test)
-
-    # Evaluate the model
-    mse = mean_squared_error(y_test, y_pred)
-
-    print(f"Mean Squared Error: {mse}")
-
-    # create the model's parent directory if it doesn't exist
+    # Create the model's parent directory if it doesn't exist
     os.makedirs(os.path.dirname(model_file_path), exist_ok=True)
 
     # Save the trained model to a file
@@ -172,7 +158,7 @@ def train_model_xgb():
 
 def get_current_indicator_values():
     # Symbol and exchange (example for Bitcoin on Binance)
-    symbol = 'SOLUSDT'
+    symbol = coin_pair
     interval = '5m'  # 5-minute timeframe
     limit = '100'  # Fetch the last 100 data points
 

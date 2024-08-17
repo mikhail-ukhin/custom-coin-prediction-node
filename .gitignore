@@ -14,3 +14,4 @@ env_file
 .env
 
 data/*
+binance_api.sqlite
