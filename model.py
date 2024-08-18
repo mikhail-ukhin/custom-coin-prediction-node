@@ -166,14 +166,14 @@ def train_model_xgb():
     df["StochasticOscillator"] = ta.momentum.StochasticOscillator(price_data["high"], price_data["low"], price_data["close"]).stoch()  # Stochastic Oscillator
 
     # Shift the price to create a 20-minute ahead prediction target
-    df["price_20min_ahead"] = df["price"].shift(-20)  # Assuming data is at 1-minute intervals
+    df["price_10min_ahead"] = df["price"].shift(-10)  # Assuming data is at 1-minute intervals
 
     # Drop rows where the target is NaN due to shifting
     df.dropna(inplace=True)
 
     # Prepare the features and target variable
     x = df[["date", "RSI_14", "EMA_14", "MACD", "StochasticOscillator"]].values  # Features
-    y = df["price_20min_ahead"].values  # Target: 20-minute ahead price
+    y = df["price_10min_ahead"].values  # Target: 10-minute ahead price
 
     # Split the data into training set and test set
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
@@ -234,7 +234,7 @@ def get_price_prediction():
 
     rsi_value, ema_value, macd_value, stochastic_value = get_current_indicator_values()
 
-    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=20)).timestamp()
+    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=10)).timestamp()
     # Make the prediction
     future_features = np.array([[future_timestamp, rsi_value, ema_value, macd_value, stochastic_value]])    
 
