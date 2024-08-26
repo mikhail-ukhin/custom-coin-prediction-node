@@ -5,7 +5,6 @@ import xgboost as xgb
 import numpy as np
 import ta
 import requests
-import requests_cache
 import matplotlib.pyplot as plt
 
 
@@ -302,14 +301,3 @@ def validate_model_perfomance():
     price_data = pd.read_csv(backtrack_price_data_path)
 
     backtest_model(model, price_data)
-
-if __name__ == "__main__":
-    download_actual_data() # original data for training
-    format_data(binance_data_path, training_price_data_path)
-    train_model_xgb()
-
-    # validate_model_perfomance()
-
-    print(get_price_prediction())
-
-    

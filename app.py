@@ -4,11 +4,10 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from flask import Flask, Response
-from model import format_data, get_price_prediction, train_model_xgb, download_actual_data, format_actual_data
+from model import get_price_prediction, train_model_xgb, download_actual_data, format_actual_data
 from config import model_file_path
 
 app = Flask(__name__)
-
 
 def update_data():
     """Download price data, format data and train model."""
