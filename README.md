@@ -1,6 +1,13 @@
-# Basic ETH Price Prediction Node
+# Custom coin Price Prediction Node
 
-This repository provides an example Allora network worker node, designed to offer price predictions for ETH. The primary objective is to demonstrate the use of a basic inference model running within a dedicated container, showcasing its integration with the Allora network infrastructure to contribute valuable inferences.
+Originaly this repository was forked from official allora repository.
+
+It was modified to demonstrate how is it possible to customize model, or even use some models from hugging face.
+I used another model - xgb boost and populated it not only with coin prices, but also with some calculated trading indicator values, to make price predictions more accurate.
+
+To validate that algorithm works as expected, it was backtested with data from the 2023.
+
+It is possible to make this software works with other coins, not only ETH, just by modifying it in configuration (`docker-compose.yml`, `config.py` and your `config.json`)
 
 ## Components
 
