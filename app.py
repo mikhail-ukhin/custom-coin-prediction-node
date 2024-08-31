@@ -41,6 +41,10 @@ def generate_inference(token):
         return Response(str(inference), status=200)
     except Exception as e:
         return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+    
+@app.route('/healthcheck')
+def healthcheck():
+    return Response('OK', status=200)
 
 @app.route("/update")
 def update():
