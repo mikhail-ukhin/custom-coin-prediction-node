@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from updater import download_binance_monthly_data
+from updater import download_binance_monthly_data, download_binance_daily_data
 from config import data_base_path, model_file_path, coin
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
@@ -25,6 +25,11 @@ def download_actual_data():
     symbols = [f"{coin}USDT"]
 
     download_data(symbols, intervals, years, months, binance_data_path)
+
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+
+    download_binance_daily_data('um', symbols, intervals, current_year, current_month, binance_data_path)
 
 def download_data(symbols, intervals, years, months, download_path):
     cm_or_um = "um"
