@@ -7,36 +7,22 @@ import ta
 import requests
 import matplotlib.pyplot as plt
 
-
 from zipfile import ZipFile
 from datetime import datetime, timedelta
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from updater import download_binance_monthly_data, download_binance_daily_data
-from config import data_base_path, model_file_path, coin_pair
+from updater import download_binance_monthly_data
+from config import data_base_path, model_file_path, coin
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
-binance_data_backtest_path = os.path.join(data_base_path, "binance/futures-klines/backtest")
-
-training_price_data_path = os.path.join(data_base_path, "sol_price_data.csv")
-backtrack_price_data_path = os.path.join(data_base_path, "sol_price__backtrack_data.csv")
-
-def download_backtest_data():
-    symbols = [coin_pair]
-    intervals = ["1m"]
-    years = ["2023"]
-    months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-
-    download_data(symbols, intervals, years, months, binance_data_backtest_path)
+training_price_data_path = os.path.join(data_base_path, f"{coin}_price_data.csv")
 
 def download_actual_data():
-    symbols = [coin_pair]
-
     intervals = ["1m"]
-    years = ["2024"]
-    months = ["01", "02", "03", "04", "05", "06", "07", "08"]
+    years = ["2024","2023","2022"]
+    months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
+    symbols = [f"{coin}USDT"]
 
     download_data(symbols, intervals, years, months, binance_data_path)
 
@@ -48,30 +34,7 @@ def download_data(symbols, intervals, years, months, download_path):
     )
     print(f"Downloaded monthly data to {download_path}.")
 
-    # current_datetime = datetime.now()
-    # current_year = current_datetime.year
-    # current_month = current_datetime.month
-    # download_binance_daily_data(
-    #     cm_or_um, symbols, intervals, current_year, current_month, download_path
-    # )
-    # print(f"Downloaded daily data to {download_path}.")
-
-def download_data_frequent():
-    cm_or_um = "um"
-    symbols = [coin_pair]
-
-    intervals = ["1m"]
-    
-    download_path = binance_data_path
-
-    current_datetime = datetime.now()
-    current_year = current_datetime.year
-    current_month = current_datetime.month
-    download_binance_daily_data(
-        cm_or_um, symbols, intervals, current_year, current_month, download_path
-    )
-
-def format_actual_data():
+def format_actual_data():    
     format_data(binance_data_path, training_price_data_path)
 
 def format_data(path, output_path):
@@ -114,37 +77,6 @@ def format_data(path, output_path):
     price_df.sort_index().to_csv(output_path)
 
 def train_model():
-    # Load the eth price data
-    price_data = pd.read_csv(training_price_data_path)
-    df = pd.DataFrame()
-
-    # Convert 'date' to a numerical value (timestamp) we can use for regression
-    df["date"] = pd.to_datetime(price_data["date"])
-    df["date"] = df["date"].map(pd.Timestamp.timestamp)
-
-    df["price"] = price_data[["open", "close", "high", "low"]].mean(axis=1)
-
-    # Reshape the data to the shape expected by sklearn
-    x = df["date"].values.reshape(-1, 1)
-    y = df["price"].values.reshape(-1, 1)
-
-    # Split the data into training set and test set
-    x_train, _, y_train, _ = train_test_split(x, y, test_size=0.2, random_state=0)
-
-    # Train the model
-    model = LinearRegression()
-    model.fit(x_train, y_train)
-
-    # create the model's parent directory if it doesn't exist
-    os.makedirs(os.path.dirname(model_file_path), exist_ok=True)
-
-    # Save the trained model to a file
-    with open(model_file_path, "wb") as f:
-        pickle.dump(model, f)
-
-    print(f"Trained model saved to {model_file_path}")
-
-def train_model_xgb():
     # Load the processed price data
     price_data = pd.read_csv(training_price_data_path)
     df = pd.DataFrame()
@@ -158,13 +90,11 @@ def train_model_xgb():
     
     # Adding RSI (14)
     df["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()
-    
-    # Adding other indicators
-    df["EMA_14"] = ta.trend.EMAIndicator(price_data["close"], window=14).ema_indicator()  # 14-period EMA
-    df["MACD"] = ta.trend.MACD(price_data["close"]).macd()  # MACD
+    df["EMA_14"] = ta.trend.EMAIndicator(price_data["close"], window=14).ema_indicator()
+    df["MACD"] = ta.trend.MACD(price_data["close"]).macd()
     df["StochasticOscillator"] = ta.momentum.StochasticOscillator(price_data["high"], price_data["low"], price_data["close"]).stoch()  # Stochastic Oscillator
 
-    # Shift the price to create a 20-minute ahead prediction target
+    # Shift the price to create a 10-minute ahead prediction target
     df["price_10min_ahead"] = df["price"].shift(-10)  # Assuming data is at 1-minute intervals
 
     # Drop rows where the target is NaN due to shifting
@@ -192,13 +122,14 @@ def train_model_xgb():
 
     # Test the model with the test set
     y_pred = model.predict(x_test)
+    
     print("Test predictions:", y_pred)
 
-def get_current_indicator_values():
+def get_current_indicator_values(coin):
     # Symbol and exchange (example for Bitcoin on Binance)
-    symbol = coin_pair
+    symbol = f'{coin}USDT'
     interval = '5m'  # 5-minute timeframe
-    limit = '100'  # Fetch the last 100 data points
+    limit = '1000'  # Fetch the last 100 data points
 
     # API endpoint for batch request
     url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
@@ -227,21 +158,23 @@ def get_current_indicator_values():
 
     return rsi_value, ema_value, macd_value, stochastic_value
 
-def get_price_prediction():
+def get_model_file_path(token):
+    lower_token = str.lower(token)
+
+    return os.path.join(data_base_path, f"{lower_token}_price_data.csv")
+
+def get_price_prediction(token):
+
     with open(model_file_path, "rb") as f:
         loaded_model = pickle.load(f)
 
-    rsi_value, ema_value, macd_value, stochastic_value = get_current_indicator_values()
+    rsi_value, ema_value, macd_value, stochastic_value = get_current_indicator_values(token)
 
     future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=10)).timestamp()
-    # Make the prediction
     future_features = np.array([[future_timestamp, rsi_value, ema_value, macd_value, stochastic_value]])    
-
     future_price_pred = loaded_model.predict(future_features)
 
     return future_price_pred[0]
-
-def backtest_model(model, price_data):
     # Prepare the data
     df = pd.DataFrame()
     df["date"] = pd.to_datetime(price_data["date"])
@@ -289,15 +222,3 @@ def backtest_model(model, price_data):
     print(f"Root Mean Squared Error (RMSE): {rmse:.4f}")
     print(f"R-squared (R2): {r2:.4f}")
     print(f"Directional Accuracy: {directional_accuracy:.2%}")
-
-def validate_model_perfomance():
-    download_backtest_data()
-    format_data(binance_data_backtest_path, backtrack_price_data_path)
-
-    # Load the model
-    with open(model_file_path, "rb") as f:
-        model = pickle.load(f)
-
-    price_data = pd.read_csv(backtrack_price_data_path)
-
-    backtest_model(model, price_data)

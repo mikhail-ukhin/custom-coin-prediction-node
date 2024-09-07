@@ -23,7 +23,6 @@ def download_url(url, download_path):
             f.write(response.content)
         # print(f"Downloaded: {url} to {target_file_path}")
 
-
 def download_binance_monthly_data(
     cm_or_um, symbols, intervals, years, months, download_path
 ):
