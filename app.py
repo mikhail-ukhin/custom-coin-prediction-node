@@ -20,8 +20,8 @@ def remove_file(file_path):
 def update_data():
     """Download price data, format data and train model."""
 
-    remove_file(model_file_path)
-    remove_file(training_price_data_path)
+    # remove_file(model_file_path)
+    # remove_file(training_price_data_path)
 
     download_actual_data()
     format_actual_data()
