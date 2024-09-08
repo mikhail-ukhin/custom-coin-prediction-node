@@ -2,30 +2,13 @@ import json
 import pickle
 import pandas as pd
 import numpy as np
-import os
 from datetime import datetime
 from flask import Flask, Response
-from model import get_price_prediction, train_model, download_actual_data, format_actual_data, training_price_data_path
+from model import get_price_prediction, train_model, download_actual_data, format_actual_data, training_price_data_path, binance_data_path
 from config import model_file_path
+from tools import remove_file, remove_files_in_dir
 
 app = Flask(__name__)
-
-def remove_file(file_path):
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        print(f"{file_path} has been deleted.")
-    else:
-        print("The file does not exist.")
-
-def update_data():
-    """Download price data, format data and train model."""
-
-    # remove_file(model_file_path)
-    # remove_file(training_price_data_path)
-
-    download_actual_data()
-    format_actual_data()
-    train_model()
 
 def get_coin_inference():
     """Load model and predict current price."""
@@ -62,12 +45,21 @@ def healthcheck():
 def update():
     """Update data and return status."""
     try:
+        cleanup_files()
         update_data()
         return "0"
     except Exception:
         return "1"
+    
+def cleanup_files():
+    remove_file(model_file_path)
+    remove_file(training_price_data_path)
+    remove_files_in_dir(binance_data_path)
 
+def update_data():
+    download_actual_data()
+    format_actual_data()
+    train_model()
 
 if __name__ == "__main__":
-    update_data()
     app.run(host="0.0.0.0", port=8000)

@@ -5,15 +5,13 @@ import xgboost as xgb
 import numpy as np
 import ta
 import requests
-import matplotlib.pyplot as plt
 
 from zipfile import ZipFile
 from datetime import datetime, timedelta
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from updater import download_binance_monthly_data, download_binance_daily_data
-from config import data_base_path, model_file_path, coin
+from config import data_base_path, model_file_path, coin, minutes_price_prediction
 
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
 training_price_data_path = os.path.join(data_base_path, f"{coin}_price_data.csv")
@@ -99,15 +97,15 @@ def train_model():
     df["MACD"] = ta.trend.MACD(price_data["close"]).macd()
     df["StochasticOscillator"] = ta.momentum.StochasticOscillator(price_data["high"], price_data["low"], price_data["close"]).stoch()  # Stochastic Oscillator
 
-    # Shift the price to create a 10-minute ahead prediction target
-    df["price_10min_ahead"] = df["price"].shift(-10)  # Assuming data is at 1-minute intervals
+    # Shift the price to create a N-minute ahead prediction target
+    df["price_ahead"] = df["price"].shift(-minutes_price_prediction)  # Assuming data is at 1-minute intervals
 
     # Drop rows where the target is NaN due to shifting
     df.dropna(inplace=True)
 
     # Prepare the features and target variable
     x = df[["date", "RSI_14", "EMA_14", "MACD", "StochasticOscillator"]].values  # Features
-    y = df["price_10min_ahead"].values  # Target: 10-minute ahead price
+    y = df["price_ahead"].values  # Target: N-minute ahead price
 
     # Split the data into training set and test set
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
@@ -133,8 +131,8 @@ def train_model():
 def get_current_indicator_values(coin):
     # Symbol and exchange (example for Bitcoin on Binance)
     symbol = f'{coin}USDT'
-    interval = '5m'  # 5-minute timeframe
-    limit = '1000'  # Fetch the last 100 data points
+    interval = '1m'  # 5-minute timeframe
+    limit = '1000'  # Fetch the last 1000 data points
 
     # API endpoint for batch request
     url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
@@ -175,7 +173,7 @@ def get_price_prediction(token):
 
     rsi_value, ema_value, macd_value, stochastic_value = get_current_indicator_values(token)
 
-    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=10)).timestamp()
+    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=minutes_price_prediction)).timestamp()
     future_features = np.array([[future_timestamp, rsi_value, ema_value, macd_value, stochastic_value]])    
     future_price_pred = loaded_model.predict(future_features)
 
