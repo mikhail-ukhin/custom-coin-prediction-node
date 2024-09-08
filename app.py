@@ -1,8 +1,4 @@
 import json
-import pickle
-import pandas as pd
-import numpy as np
-from datetime import datetime
 from flask import Flask, Response
 from model import get_price_prediction, train_model, download_actual_data, format_actual_data, training_price_data_path, binance_data_path
 from config import model_file_path

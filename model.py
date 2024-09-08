@@ -12,16 +12,17 @@ from datetime import datetime, timedelta
 from sklearn.model_selection import train_test_split
 
 from updater import download_binance_monthly_data, download_binance_daily_data
-from config import data_base_path, model_file_path, coin, minutes_price_prediction
+from config import data_base_path, model_file_path, get_config
 
+config = get_config()
 binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
-training_price_data_path = os.path.join(data_base_path, f"{coin}_price_data.csv")
+training_price_data_path = os.path.join(data_base_path, f"{config['coin']}_price_data.csv")
 
 def download_actual_data():
     intervals = ["1m"]
     years = ["2024","2023","2022"]
     months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-    symbols = [f"{coin}USDT"]
+    symbols = [f"{config['coin']}USDT"]
 
     download_data(symbols, intervals, years, months, binance_data_path)
 
@@ -116,7 +117,7 @@ def train_model():
     df["OBV"] = ta.volume.OnBalanceVolumeIndicator(price_data["close"], price_data["volume"]).on_balance_volume()
 
     # Shift the price to create a N-minute ahead prediction target
-    df["price_ahead"] = df["price"].shift(-minutes_price_prediction)
+    df["price_ahead"] = df["price"].shift(-config['minutes_price_prediction'])
 
     # Drop rows where the target is NaN due to shifting
     df.dropna(inplace=True)
@@ -206,7 +207,7 @@ def get_price_prediction(token):
     ema_value, sma_value, atr_value, obv_value = get_current_indicator_values(token)
 
     # Create the timestamp for the future prediction
-    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=minutes_price_prediction)).timestamp()
+    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=config['minutes_price_prediction'])).timestamp()
 
     # Prepare the feature array with the updated indicators
     future_features = np.array([[future_timestamp, ema_value, sma_value, atr_value, obv_value]])    

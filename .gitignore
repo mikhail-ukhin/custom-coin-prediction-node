@@ -9,6 +9,7 @@ inference-data
 worker-data
 
 config.json
+settings.json
 env
 env_file
 .env
