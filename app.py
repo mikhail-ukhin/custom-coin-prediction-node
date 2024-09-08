@@ -45,7 +45,6 @@ def healthcheck():
 def update():
     """Update data and return status."""
     try:
-        cleanup_files()
         update_data()
         return "0"
     except Exception:
@@ -57,9 +56,25 @@ def cleanup_files():
     remove_files_in_dir(binance_data_path)
 
 def update_data():
+    # cleanup_files()
+
+    print('Starting to download the data')
     download_actual_data()
-    format_actual_data()
-    train_model()
+
+    print('Starting to format the data')
+
+    try:
+        format_actual_data()
+    except Exception as e:
+        print(f"Error formatting data: {e}")
+
+    print('Starting to train the model')
+
+    try:
+        train_model()
+    except Exception as e:
+        print(f"Error training model: {e}")
 
 if __name__ == "__main__":
+    update_data()
     app.run(host="0.0.0.0", port=8000)
