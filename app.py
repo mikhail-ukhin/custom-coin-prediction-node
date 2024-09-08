@@ -63,5 +63,5 @@ def update_data():
         print(f"Error training model: {e}")
 
 if __name__ == "__main__":
-    # update_data()
+    update_data()
     app.run(host="0.0.0.0", port=8000)
