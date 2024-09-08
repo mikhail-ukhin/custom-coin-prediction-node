@@ -5,6 +5,7 @@ import xgboost as xgb
 import numpy as np
 import ta
 import requests
+import matplotlib.pyplot as plt
 
 from zipfile import ZipFile
 from datetime import datetime, timedelta
@@ -91,20 +92,40 @@ def train_model():
     # Calculate the average price and add technical indicators
     df["price"] = price_data[["open", "close", "high", "low"]].mean(axis=1)
     
-    # Adding RSI (14)
-    df["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()
+    # Core Technical Indicators
+    # RSI (14)
+    # df["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()
+
+    # Exponential Moving Average (EMA)
     df["EMA_14"] = ta.trend.EMAIndicator(price_data["close"], window=14).ema_indicator()
-    df["MACD"] = ta.trend.MACD(price_data["close"]).macd()
-    df["StochasticOscillator"] = ta.momentum.StochasticOscillator(price_data["high"], price_data["low"], price_data["close"]).stoch()  # Stochastic Oscillator
+
+    # MACD
+    # df["MACD"] = ta.trend.MACD(price_data["close"]).macd()
+
+    # Stochastic Oscillator
+    # df["StochasticOscillator"] = ta.momentum.StochasticOscillator(price_data["high"], price_data["low"], price_data["close"]).stoch()
+
+    # New Features:
+    # Simple Moving Average (SMA)
+    df["SMA_14"] = ta.trend.SMAIndicator(price_data["close"], window=14).sma_indicator()
+
+    # Average True Range (ATR) - Volatility Indicator
+    df["ATR_14"] = ta.volatility.AverageTrueRange(price_data["high"], price_data["low"], price_data["close"], window=14).average_true_range()
+
+    # On-Balance Volume (OBV)
+    df["OBV"] = ta.volume.OnBalanceVolumeIndicator(price_data["close"], price_data["volume"]).on_balance_volume()
 
     # Shift the price to create a N-minute ahead prediction target
-    df["price_ahead"] = df["price"].shift(-minutes_price_prediction)  # Assuming data is at 1-minute intervals
+    df["price_ahead"] = df["price"].shift(-minutes_price_prediction)
 
     # Drop rows where the target is NaN due to shifting
     df.dropna(inplace=True)
 
-    # Prepare the features and target variable
-    x = df[["date", "RSI_14", "EMA_14", "MACD", "StochasticOscillator"]].values  # Features
+    # Updated feature list without StochasticOscillator (f4), RSI (f1), and MACD (f3)
+    features = ["date", "EMA_14", "SMA_14", "ATR_14", "OBV"]
+
+    # Prepare the new features and target variable
+    x = df[features].values  # Updated Features without the low importance ones
     y = df["price_ahead"].values  # Target: N-minute ahead price
 
     # Split the data into training set and test set
@@ -113,6 +134,7 @@ def train_model():
     # Train the XGBoost model
     model = xgb.XGBRegressor(objective='reg:squarederror', random_state=0)
     model.fit(x_train, y_train)
+
 
     # Create the model's parent directory if it doesn't exist
     os.makedirs(os.path.dirname(model_file_path), exist_ok=True)
@@ -123,10 +145,15 @@ def train_model():
 
     print(f"Trained model saved to {model_file_path}")
 
-    # Test the model with the test set
+    # # Test the model with the test set
     y_pred = model.predict(x_test)
     
     print("Test predictions:", y_pred)
+
+    # Now we pass the trained model into the backtest function for evaluation
+    y_test, y_pred, accuracy = backtest_directional_accuracy(model, df, features, "price_ahead")
+
+    print(f"Backtest Directional Accuracy: {accuracy:.2f}%")
 
 def get_current_indicator_values(coin):
     # Symbol and exchange (example for Bitcoin on Binance)
@@ -178,3 +205,32 @@ def get_price_prediction(token):
     future_price_pred = loaded_model.predict(future_features)
 
     return future_price_pred[0]
+
+def backtest_directional_accuracy(model, df, features, target):
+    # Split the data into training and test sets
+    x = df[features].values  # Features
+    y = df[target].values  # Actual future prices (target)
+    
+    # We assume the model is already trained
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+
+    # Generate predictions for the test set
+    y_pred = model.predict(x_test)
+
+    # Calculate directional accuracy
+    actual_direction = np.sign(np.diff(y_test))  # +1 for up, -1 for down
+    predicted_direction = np.sign(np.diff(y_pred))  # +1 for predicted up, -1 for predicted down
+
+    # Compare actual and predicted directions
+    correct_predictions = (actual_direction == predicted_direction).sum()
+    total_predictions = len(actual_direction)
+    accuracy = correct_predictions / total_predictions * 100
+
+    print(f"Directional Accuracy: {accuracy:.2f}%")
+    
+    return y_test, y_pred, accuracy
+
+if __name__ == '__main__':
+    # download_actual_data()
+    format_actual_data()
+    train_model()
