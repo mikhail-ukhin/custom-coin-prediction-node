@@ -158,7 +158,7 @@ def train_model():
 def get_current_indicator_values(coin):
     # Symbol and exchange (example for Bitcoin on Binance)
     symbol = f'{coin}USDT'
-    interval = '1m'  # 5-minute timeframe
+    interval = '1m'  # 5-minute interval
     limit = '1000'  # Fetch the last 1000 data points
 
     # API endpoint for batch request
@@ -168,25 +168,29 @@ def get_current_indicator_values(coin):
     response = requests.get(url)
     data = response.json()
 
+    # Define column names for the Binance response
     columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore']
-
     df = pd.DataFrame(data, columns=columns)
 
+    # Ensure the close and volume are of float type for calculation
     df['close'] = df['close'].astype(float)
-    rsi_value = ta.momentum.RSIIndicator(df["close"], window=14).rsi().iloc[-1]
+    df['high'] = df['high'].astype(float)
+    df['low'] = df['low'].astype(float)
+    df['volume'] = df['volume'].astype(float)
 
     # Calculate EMA (14)
     ema_value = ta.trend.EMAIndicator(df["close"], window=14).ema_indicator().iloc[-1]
 
-    # Calculate MACD (12, 26, 9)
-    macd = ta.trend.MACD(df["close"])
-    macd_value = macd.macd().iloc[-1]
+    # Calculate SMA (14)
+    sma_value = ta.trend.SMAIndicator(df["close"], window=14).sma_indicator().iloc[-1]
 
-    # Calculate Stochastic Oscillator (14, 3, 3)
-    stochastic = ta.momentum.StochasticOscillator(df["high"], df["low"], df["close"], window=14)
-    stochastic_value = stochastic.stoch().iloc[-1]
+    # Calculate ATR (14) for volatility
+    atr_value = ta.volatility.AverageTrueRange(df["high"], df["low"], df["close"], window=14).average_true_range().iloc[-1]
 
-    return rsi_value, ema_value, macd_value, stochastic_value
+    # Calculate OBV (On-Balance Volume)
+    obv_value = ta.volume.OnBalanceVolumeIndicator(df["close"], df["volume"]).on_balance_volume().iloc[-1]
+
+    return ema_value, sma_value, atr_value, obv_value
 
 def get_model_file_path(token):
     lower_token = str.lower(token)
@@ -194,14 +198,20 @@ def get_model_file_path(token):
     return os.path.join(data_base_path, f"{lower_token}_price_data.csv")
 
 def get_price_prediction(token):
-
+    # Load the pre-trained model
     with open(model_file_path, "rb") as f:
         loaded_model = pickle.load(f)
 
-    rsi_value, ema_value, macd_value, stochastic_value = get_current_indicator_values(token)
+    # Get current indicator values (EMA, SMA, ATR, OBV)
+    ema_value, sma_value, atr_value, obv_value = get_current_indicator_values(token)
 
+    # Create the timestamp for the future prediction
     future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=minutes_price_prediction)).timestamp()
-    future_features = np.array([[future_timestamp, rsi_value, ema_value, macd_value, stochastic_value]])    
+
+    # Prepare the feature array with the updated indicators
+    future_features = np.array([[future_timestamp, ema_value, sma_value, atr_value, obv_value]])    
+    
+    # Predict the future price using the loaded model
     future_price_pred = loaded_model.predict(future_features)
 
     return future_price_pred[0]
@@ -229,8 +239,3 @@ def backtest_directional_accuracy(model, df, features, target):
     print(f"Directional Accuracy: {accuracy:.2f}%")
     
     return y_test, y_pred, accuracy
-
-if __name__ == '__main__':
-    # download_actual_data()
-    format_actual_data()
-    train_model()
