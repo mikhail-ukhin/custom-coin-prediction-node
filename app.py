@@ -10,18 +10,7 @@ from tools import remove_file, remove_files_in_dir
 
 app = Flask(__name__)
 
-def get_coin_inference():
-    """Load model and predict current price."""
-    with open(model_file_path, "rb") as f:
-        loaded_model = pickle.load(f)
-
-    now_timestamp = pd.Timestamp(datetime.now()).timestamp()
-    X_new = np.array([now_timestamp]).reshape(-1, 1)
-    current_price_pred = loaded_model.predict(X_new)
-
-    return current_price_pred[0][0]
-
-def get_coin_inference_alternative(token):
+def get_coin_inference(token):
     return get_price_prediction(token)
 
 @app.route("/inference/<string:token>")
@@ -32,7 +21,7 @@ def generate_inference(token):
         return Response(json.dumps({"error": error_msg}), status=400, mimetype='application/json')
 
     try:
-        inference = get_coin_inference_alternative(token)
+        inference = get_coin_inference(token)
         return Response(str(inference), status=200)
     except Exception as e:
         return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
@@ -43,9 +32,9 @@ def healthcheck():
 
 @app.route("/update")
 def update():
-    """Update data and return status."""
+    print('Endpoint update data triggered')
     try:
-        update_data()
+        update_data_with_cleanup()
         return "0"
     except Exception:
         return "1"
@@ -54,6 +43,10 @@ def cleanup_files():
     remove_file(model_file_path)
     remove_file(training_price_data_path)
     remove_files_in_dir(binance_data_path)
+
+def update_data_with_cleanup():
+    cleanup_files()
+    update_data()
 
 def update_data():
     # cleanup_files()
