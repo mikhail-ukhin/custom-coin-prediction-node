@@ -1,8 +1,6 @@
 import json
 from flask import Flask, Response
-from model import get_price_prediction, train_model, download_actual_data, format_actual_data, training_price_data_path, binance_data_path
-from config import model_file_path
-from tools import remove_file, remove_files_in_dir
+from model import get_price_prediction, train_model, download_actual_data, format_actual_data
 
 app = Flask(__name__)
 
@@ -30,19 +28,10 @@ def healthcheck():
 def update():
     print('Endpoint update data triggered')
     try:
-        update_data_with_cleanup()
+        update_data()
         return "0"
     except Exception:
         return "1"
-    
-def cleanup_files():
-    remove_file(model_file_path)
-    remove_file(training_price_data_path)
-    remove_files_in_dir(binance_data_path)
-
-def update_data_with_cleanup():
-    cleanup_files()
-    update_data()
 
 def update_data():
     print('Starting to download the data')

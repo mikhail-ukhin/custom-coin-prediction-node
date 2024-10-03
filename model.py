@@ -4,40 +4,24 @@ import pandas as pd
 import xgboost as xgb
 import numpy as np
 import ta
-import requests
-import matplotlib.pyplot as plt
 
 from zipfile import ZipFile
 from datetime import datetime, timedelta
 from sklearn.model_selection import train_test_split
 
-from updater import download_binance_monthly_data, download_binance_daily_data
-from config import data_base_path, model_file_path, get_config
+from updater import download_binance_monthly_data, download_binance_daily_data, get_latest_data
+from config import data_base_path, model_file_path, TIMEFRAME, TRAINING_DAYS, TOKEN, MINUTES_PRICE_PREDICTION
 
-config = get_config()
-binance_data_path = os.path.join(data_base_path, "binance/futures-klines")
-training_price_data_path = os.path.join(data_base_path, f"{config['coin']}_price_data.csv")
+binance_data_path = os.path.join(data_base_path, "binance")
+training_price_data_path = os.path.join(data_base_path, f"{TOKEN}_price_data.csv")
 
 def download_actual_data():
-    intervals = ["1m"]
-    years = ["2024","2023","2022"]
-    months = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"]
-    symbols = [f"{config['coin']}USDT"]
+    symbols = f"{TOKEN}USDT"
 
-    download_data(symbols, intervals, years, months, binance_data_path)
+    download_data(symbols, TRAINING_DAYS, TIMEFRAME, binance_data_path)
 
-    current_year = datetime.now().year
-    current_month = datetime.now().month
-
-    download_binance_daily_data('um', symbols, intervals, current_year, current_month, binance_data_path)
-
-def download_data(symbols, intervals, years, months, download_path):
-    cm_or_um = "um"
-
-    download_binance_monthly_data(
-        cm_or_um, symbols, intervals, years, months, download_path
-    )
-    print(f"Downloaded monthly data to {download_path}.")
+def download_data(symbols, training_days, interval, download_path):
+    download_binance_daily_data(symbols, training_days, interval, 'EU', download_path)
 
 def format_actual_data():    
     format_data(binance_data_path, training_price_data_path)
@@ -82,7 +66,6 @@ def format_data(path, output_path):
     price_df.sort_index().to_csv(output_path)
 
 def train_model():
-    # Load the processed price data
     price_data = pd.read_csv(training_price_data_path)
     df = pd.DataFrame()
 
@@ -92,21 +75,10 @@ def train_model():
 
     # Calculate the average price and add technical indicators
     df["price"] = price_data[["open", "close", "high", "low"]].mean(axis=1)
-    
-    # Core Technical Indicators
-    # RSI (14)
-    # df["RSI_14"] = ta.momentum.RSIIndicator(price_data["close"], window=14).rsi()
 
     # Exponential Moving Average (EMA)
     df["EMA_14"] = ta.trend.EMAIndicator(price_data["close"], window=14).ema_indicator()
 
-    # MACD
-    # df["MACD"] = ta.trend.MACD(price_data["close"]).macd()
-
-    # Stochastic Oscillator
-    # df["StochasticOscillator"] = ta.momentum.StochasticOscillator(price_data["high"], price_data["low"], price_data["close"]).stoch()
-
-    # New Features:
     # Simple Moving Average (SMA)
     df["SMA_14"] = ta.trend.SMAIndicator(price_data["close"], window=14).sma_indicator()
 
@@ -117,8 +89,8 @@ def train_model():
     df["OBV"] = ta.volume.OnBalanceVolumeIndicator(price_data["close"], price_data["volume"]).on_balance_volume()
 
     # Shift the price to create a N-minute ahead prediction target
-    df["price_ahead"] = df["price"].shift(-config['minutes_price_prediction'])
-
+    df["price_ahead"] = df["price"].shift(-int(MINUTES_PRICE_PREDICTION))
+    
     # Drop rows where the target is NaN due to shifting
     df.dropna(inplace=True)
 
@@ -157,17 +129,11 @@ def train_model():
     print(f"Backtest Directional Accuracy: {accuracy:.2f}%")
 
 def get_current_indicator_values(coin):
-    # Symbol and exchange (example for Bitcoin on Binance)
-    symbol = f'{coin}USDT'
-    interval = '1m'  # 5-minute interval
+    symbol = f'{TOKEN}USDT'
     limit = '1000'  # Fetch the last 1000 data points
 
     # API endpoint for batch request
-    url = f'https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}'
-
-    # Make the API request
-    response = requests.get(url)
-    data = response.json()
+    data = get_latest_data(symbol, TIMEFRAME, limit)
 
     # Define column names for the Binance response
     columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_asset_volume', 'number_of_trades', 'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore']
@@ -199,20 +165,14 @@ def get_model_file_path(token):
     return os.path.join(data_base_path, f"{lower_token}_price_data.csv")
 
 def get_price_prediction(token):
-    # Load the pre-trained model
     with open(model_file_path, "rb") as f:
         loaded_model = pickle.load(f)
 
     # Get current indicator values (EMA, SMA, ATR, OBV)
     ema_value, sma_value, atr_value, obv_value = get_current_indicator_values(token)
 
-    # Create the timestamp for the future prediction
-    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=config['minutes_price_prediction'])).timestamp()
-
-    # Prepare the feature array with the updated indicators
+    future_timestamp = pd.Timestamp(datetime.now() + timedelta(minutes=int(MINUTES_PRICE_PREDICTION))).timestamp()
     future_features = np.array([[future_timestamp, ema_value, sma_value, atr_value, obv_value]])    
-    
-    # Predict the future price using the loaded model
     future_price_pred = loaded_model.predict(future_features)
 
     return future_price_pred[0]
