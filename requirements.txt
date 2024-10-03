@@ -9,3 +9,6 @@ xgboost
 ta
 requests_cache
 matplotlib
+python-dotenv
+aiohttp
+multiprocess
