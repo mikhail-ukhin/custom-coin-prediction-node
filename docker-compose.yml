@@ -1,6 +1,8 @@
 services:
   inference:
     container_name: inference-custom-coin-pred
+    env_file:
+      - .env
     build: .
     command: python -u /app/app.py
     ports:
