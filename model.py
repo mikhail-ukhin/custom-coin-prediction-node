@@ -9,16 +9,15 @@ from zipfile import ZipFile
 from datetime import datetime, timedelta
 from sklearn.model_selection import train_test_split
 
-from updater import download_binance_monthly_data, download_binance_daily_data, get_latest_data
+from updater import download_binance_daily_data, get_latest_data
 from config import data_base_path, model_file_path, TIMEFRAME, TRAINING_DAYS, TOKEN, MINUTES_PRICE_PREDICTION
 
 binance_data_path = os.path.join(data_base_path, "binance")
 training_price_data_path = os.path.join(data_base_path, f"{TOKEN}_price_data.csv")
+symbol = f"{TOKEN}USDT"
 
 def download_actual_data():
-    symbols = f"{TOKEN}USDT"
-
-    download_data(symbols, TRAINING_DAYS, TIMEFRAME, binance_data_path)
+    download_data(symbol, TRAINING_DAYS, TIMEFRAME, binance_data_path)
 
 def download_data(symbols, training_days, interval, download_path):
     download_binance_daily_data(symbols, training_days, interval, 'EU', download_path)
@@ -129,7 +128,6 @@ def train_model():
     print(f"Backtest Directional Accuracy: {accuracy:.2f}%")
 
 def get_current_indicator_values(coin):
-    symbol = f'{TOKEN}USDT'
     limit = '1000'  # Fetch the last 1000 data points
 
     # API endpoint for batch request
